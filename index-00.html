@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FREESTYLE KING — Loop Mixer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0906;
+    --bg2:#141109;
+    --gold:#d4af37;
+    --gold-dim:#8a7226;
+    --gold-bright:#f2cf5b;
+    --line:#2b2415;
+    --red:#b3413b;
+    --text:#e8dfc4;
+    --text-dim:#7d7460;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Mono',monospace;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  #stars{position:fixed;inset:0;z-index:0;}
+  .scanlines{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.15) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    opacity:0.5;
+  }
+  .wrap{position:relative;z-index:2;max-width:980px;margin:0 auto;padding:32px 20px 80px;}
+
+  header{margin-bottom:36px;border-bottom:1px solid var(--line);padding-bottom:18px;}
+  h1{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:clamp(38px,7vw,64px);
+    letter-spacing:3px;
+    color:var(--gold-bright);
+    text-shadow:0 0 18px rgba(212,175,55,0.35);
+    line-height:0.9;
+  }
+  .eyebrow{
+    font-size:11px;letter-spacing:4px;color:var(--gold-dim);
+    text-transform:uppercase;margin-bottom:6px;
+  }
+  .sub{color:var(--text-dim);font-size:13px;margin-top:8px;letter-spacing:0.5px;}
+
+  .transport{
+    display:flex;align-items:center;gap:16px;margin-bottom:36px;
+    flex-wrap:wrap;
+  }
+  button{
+    font-family:'DM Mono',monospace;
+    background:transparent;
+    border:1px solid var(--gold-dim);
+    color:var(--gold);
+    padding:10px 22px;
+    letter-spacing:2px;
+    font-size:12px;
+    text-transform:uppercase;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
+  button:hover{background:var(--gold);color:var(--bg);border-color:var(--gold);}
+  button.primary{border-color:var(--gold);color:var(--gold-bright);}
+  button.danger{border-color:var(--red);color:var(--red);}
+  button.danger:hover{background:var(--red);color:var(--bg);}
+  button:disabled{opacity:0.3;cursor:not-allowed;}
+  button:disabled:hover{background:transparent;color:var(--gold);}
+
+  .bpm-readout{
+    font-size:11px;color:var(--text-dim);letter-spacing:2px;
+    border:1px solid var(--line);padding:10px 16px;
+  }
+  .bpm-readout span{color:var(--gold-bright);font-size:14px;}
+
+  .tracks{display:flex;flex-direction:column;gap:2px;margin-bottom:40px;}
+  .track{
+    background:var(--bg2);
+    border:1px solid var(--line);
+    padding:16px 18px;
+    display:grid;
+    grid-template-columns:32px 1fr auto;
+    gap:14px;
+    align-items:center;
+    position:relative;
+  }
+  .track.armed{border-color:var(--gold-dim);}
+  .track-num{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:24px;color:var(--gold-dim);
+    text-align:center;
+  }
+  .track.armed .track-num{color:var(--gold-bright);}
+
+  .track-main{display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .track-file-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .file-label{
+    font-size:11px;color:var(--text-dim);letter-spacing:1px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;
+  }
+  .file-label.loaded{color:var(--gold);}
+  input[type=file]{display:none;}
+  .file-btn{
+    font-size:10px;padding:6px 12px;letter-spacing:1.5px;
+  }
+
+  .vol-row{display:flex;align-items:center;gap:10px;}
+  .vol-row label{font-size:10px;color:var(--text-dim);letter-spacing:1.5px;width:36px;}
+  input[type=range]{
+    -webkit-appearance:none;
+    flex:1;height:2px;background:var(--line);outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+    background:var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(212,175,55,0.5);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:12px;height:12px;border-radius:50%;border:none;
+    background:var(--gold);cursor:pointer;
+  }
+
+  .fx-row{display:flex;gap:6px;flex-wrap:wrap;}
+  .fx-toggle{
+    font-size:10px;padding:5px 10px;letter-spacing:1px;
+    border:1px solid var(--line);color:var(--text-dim);
+    background:transparent;cursor:pointer;
+  }
+  .fx-toggle.on{border-color:var(--gold);color:var(--gold-bright);background:rgba(212,175,55,0.08);}
+
+  .track-controls{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+  .mute-solo{display:flex;gap:6px;}
+  .mute-solo button{padding:5px 10px;font-size:10px;}
+  .mute-solo button.on{background:var(--gold);color:var(--bg);}
+  .mute-solo button.solo-on{background:var(--gold-bright);color:var(--bg);border-color:var(--gold-bright);}
+
+  .master{
+    background:var(--bg2);
+    border:1px solid var(--gold-dim);
+    padding:20px;
+    margin-bottom:20px;
+  }
+  .master h2{
+    font-family:'Bebas Neue',sans-serif;
+    letter-spacing:2px;font-size:22px;color:var(--gold-bright);margin-bottom:14px;
+  }
+
+  .status{
+    font-size:11px;color:var(--text-dim);letter-spacing:1px;
+    margin-top:20px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px;
+  }
+  .status .ok{color:var(--gold);}
+  .status .warn{color:var(--red);}
+
+  @media (max-width:640px){
+    .track{grid-template-columns:24px 1fr;}
+    .track-controls{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center;margin-top:8px;}
+  }
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="scanlines"></div>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Transparency Interactive / Freestyle King</div>
+    <h1>Loop Mixer</h1>
+    <div class="sub">Five synced stems, loaded straight from the folder next to this file.</div>
+  </header>
+
+  <div class="transport">
+    <button class="primary" id="playAllBtn" disabled>Play All</button>
+    <button class="danger" id="stopAllBtn" disabled>Stop All</button>
+    <div class="bpm-readout">TEMPO <span id="tempoVal">96</span> BPM</div>
+    <input type="range" id="tempoSlider" min="60" max="180" value="96" style="width:140px;">
+  </div>
+
+  <div class="bpm-readout" style="margin-bottom:24px;display:inline-block;">
+    NOW LOADED <span id="beatReadout">—</span>
+  </div>
+
+  <div class="tracks" id="tracks"></div>
+
+  <div class="master">
+    <h2>Master</h2>
+    <div class="vol-row" style="margin-bottom:12px;">
+      <label>VOL</label>
+      <input type="range" id="masterVol" min="-40" max="6" value="0">
+    </div>
+    <div class="fx-row" id="masterFx"></div>
+  </div>
+
+  <div class="status" id="statusLine">
+    Loading the configured beat…
+  </div>
+</div>
+
+<script>
+// ---------- Starfield background ----------
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resize();
+window.addEventListener('resize',resize);
+const stars = Array.from({length:140},()=>({
+  x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+  r:Math.random()*1.3+0.2, s:Math.random()*0.5+0.1, a:Math.random()
+}));
+function drawStars(){
+  ctx.fillStyle='#0a0906';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  stars.forEach(st=>{
+    st.a += 0.01*st.s;
+    const alpha = 0.3+Math.abs(Math.sin(st.a))*0.5;
+    ctx.fillStyle=`rgba(212,175,55,${alpha*0.6})`;
+    ctx.beginPath();
+    ctx.arc(st.x,st.y,st.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+// ---------- Effect factory ----------
+// Each track and the master get their own instance of these three effects,
+// wired in series but bypassed (wet=0 / disconnected) until toggled on.
+function makeFxChain(){
+  const filter = new Tone.Filter(2000,'lowpass');
+  const delay = new Tone.FeedbackDelay('8n',0.35);
+  delay.wet.value = 0;
+  const reverb = new Tone.Reverb({decay:3,wet:0});
+  filter.wet ? null : null; // filter has no wet; we bypass via frequency reset instead
+  return {filter, delay, reverb};
+}
+
+const NUM_TRACKS = 5;
+const tracks = []; // { player, volumeNode, fx, fileLabelEl, ... }
+let transportStarted = false;
+
+const masterVolNode = new Tone.Volume(0).toDestination();
+const masterFx = makeFxChain();
+masterFx.filter.connect(masterFx.delay);
+masterFx.delay.connect(masterFx.reverb);
+masterFx.reverb.connect(masterVolNode);
+// dry path (filter bypassed by default — see toggle logic below)
+const masterInput = masterFx.filter; // everything feeds into filter first (lowpass defaults wide open)
+
+function buildTrackUI(index){
+  const el = document.createElement('div');
+  el.className = 'track';
+  el.innerHTML = `
+    <div class="track-num">${index+1}</div>
+    <div class="track-main">
+      <div class="track-file-row">
+        <span class="file-label" id="fileLabel${index}">waiting for beat load…</span>
+      </div>
+      <div class="vol-row">
+        <label>VOL</label>
+        <input type="range" min="-40" max="6" value="0" id="vol${index}">
+      </div>
+      <div class="fx-row" id="fxRow${index}">
+        <button class="fx-toggle" data-fx="filter">FILTER</button>
+        <button class="fx-toggle" data-fx="delay">DELAY</button>
+        <button class="fx-toggle" data-fx="reverb">REVERB</button>
+      </div>
+    </div>
+    <div class="track-controls">
+      <div class="mute-solo">
+        <button class="muteBtn" id="mute${index}">MUTE</button>
+        <button class="soloBtn" id="solo${index}">SOLO</button>
+      </div>
+    </div>
+  `;
+  return el;
+}
+
+function buildMasterFxUI(){
+  const row = document.getElementById('masterFx');
+  ['filter','delay','reverb'].forEach(fx=>{
+    const btn = document.createElement('button');
+    btn.className='fx-toggle';
+    btn.textContent = fx.toUpperCase();
+    btn.dataset.fx = fx;
+    btn.addEventListener('click',()=>{
+      btn.classList.toggle('on');
+      const on = btn.classList.contains('on');
+      applyMasterFxToggle(fx,on);
+    });
+    row.appendChild(btn);
+  });
+}
+
+function applyMasterFxToggle(fx,on){
+  if(fx==='filter'){
+    masterFx.filter.frequency.value = on ? 800 : 20000; // audible sweep vs wide open
+  }
+  if(fx==='delay'){
+    masterFx.delay.wet.value = on ? 0.35 : 0;
+  }
+  if(fx==='reverb'){
+    masterFx.reverb.wet.value = on ? 0.4 : 0;
+  }
+}
+
+const container = document.getElementById('tracks');
+for(let i=0;i<NUM_TRACKS;i++){
+  container.appendChild(buildTrackUI(i));
+  const volNode = new Tone.Volume(0);
+  const fx = makeFxChain();
+  // chain: player -> volNode -> filter -> delay -> reverb -> master input
+  volNode.connect(fx.filter);
+  fx.filter.connect(fx.delay);
+  fx.delay.connect(fx.reverb);
+  fx.reverb.connect(masterInput);
+
+  tracks.push({
+    player:null,
+    volNode,
+    fx,
+    loaded:false,
+    muted:false,
+    soloed:false
+  });
+
+  document.getElementById(`vol${i}`).addEventListener('input',e=>{
+    volNode.volume.value = parseFloat(e.target.value);
+  });
+
+  document.querySelectorAll(`#fxRow${i} .fx-toggle`).forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btn.classList.toggle('on');
+      const on = btn.classList.contains('on');
+      const fxName = btn.dataset.fx;
+      const t = tracks[i];
+      if(fxName==='filter') t.fx.filter.frequency.value = on ? 800 : 20000;
+      if(fxName==='delay') t.fx.delay.wet.value = on ? 0.35 : 0;
+      if(fxName==='reverb') t.fx.reverb.wet.value = on ? 0.4 : 0;
+    });
+  });
+
+  document.getElementById(`mute${i}`).addEventListener('click',e=>{
+    const t = tracks[i];
+    t.muted = !t.muted;
+    e.target.classList.toggle('on',t.muted);
+    updateAudibility();
+  });
+  document.getElementById(`solo${i}`).addEventListener('click',e=>{
+    const t = tracks[i];
+    t.soloed = !t.soloed;
+    e.target.classList.toggle('solo-on',t.soloed);
+    updateAudibility();
+  });
+}
+buildMasterFxUI();
+
+function updateAudibility(){
+  const anySolo = tracks.some(t=>t.soloed);
+  tracks.forEach(t=>{
+    if(!t.volNode) return;
+    let silent = t.muted;
+    if(anySolo && !t.soloed) silent = true;
+    t.volNode.mute = silent;
+  });
+}
+
+// ---------- Config: this is the ONLY part that changes once the
+// randomizer / day-selector / manifest.json exists. Everything below
+// (loadBeat, playAll, stopAll) stays exactly as-is when those are added. ----------
+const CONFIG = {
+  dateFolder: "2026-07-28",   // <-- change to a real date folder name from your RC-505 dumps
+  beatNumber: "001",          // <-- 001 through 099
+  stemCount: 5
+};
+
+async function loadTrack(index, url, name){
+  const t = tracks[index];
+  if(t.player){ t.player.dispose(); }
+  const player = new Tone.Player({url, loop:true}).connect(t.volNode);
+  await Tone.loaded();
+  t.player = player;
+  t.loaded = true;
+  document.getElementById(`fileLabel${index}`).textContent = name;
+  document.getElementById(`fileLabel${index}`).classList.add('loaded');
+  document.querySelectorAll('.track')[index].classList.add('armed');
+  checkAllLoaded();
+}
+
+function checkAllLoaded(){
+  const allLoaded = tracks.every(t=>t.loaded);
+  document.getElementById('playAllBtn').disabled = !allLoaded;
+  const status = document.getElementById('statusLine');
+  if(allLoaded){
+    status.innerHTML = 'All five stems loaded. <span class="ok">Ready to play in sync.</span>';
+  } else {
+    const remaining = tracks.filter(t=>!t.loaded).length;
+    status.innerHTML = `${remaining} stem${remaining===1?'':'s'} still need loading.`;
+  }
+}
+
+// ---------- Path-based loader ----------
+// Expects folder layout relative to this index.html:
+//   ./<dateFolder>/wave/<beatNumber>-1.wav ... <beatNumber>-5.wav
+async function loadBeat(dateFolder, beatNumber){
+  document.getElementById('statusLine').innerHTML = `Loading beat ${beatNumber} from ${dateFolder}…`;
+  tracks.forEach(t=>{ t.loaded = false; });
+  document.querySelectorAll('.track').forEach(el=>el.classList.remove('armed'));
+
+  const loads = [];
+  for(let i=0;i<CONFIG.stemCount;i++){
+    const stemNum = i+1;
+    const path = `./${dateFolder}/wave/${beatNumber}-${stemNum}.wav`;
+    const label = `${beatNumber}-${stemNum}.wav`;
+    loads.push(loadTrack(i, path, label));
+  }
+  await Promise.all(loads);
+  document.getElementById('beatReadout').textContent = `${dateFolder} — beat ${beatNumber}`;
+}
+
+// Public API surface for future callers: the randomizer, the day/beat
+// selector, and eventually Freestyle King / the Three.js Hangout embed
+// all just call these same functions.
+window.LoopMixerAPI = {
+  loadBeat,
+  playAll: ()=> document.getElementById('playAllBtn').click(),
+  stopAll: ()=> document.getElementById('stopAllBtn').click(),
+  setMasterVolume: (db)=>{ masterVolNode.volume.value = db; }
+};
+
+// ---------- Transport ----------
+document.getElementById('playAllBtn').addEventListener('click', async ()=>{
+  await Tone.start();
+  Tone.Transport.stop();
+  Tone.Transport.position = 0;
+  tracks.forEach(t=>{
+    if(t.player){
+      t.player.unsync();
+      t.player.sync().start(0);
+    }
+  });
+  Tone.Transport.start('+0.1');
+  document.getElementById('stopAllBtn').disabled = false;
+  document.getElementById('statusLine').innerHTML = '<span class="ok">Playing — all five loops synced on the transport.</span>';
+});
+
+document.getElementById('stopAllBtn').addEventListener('click', ()=>{
+  Tone.Transport.stop();
+  tracks.forEach(t=>{ if(t.player) t.player.unsync(); });
+  document.getElementById('statusLine').innerHTML = 'Stopped. Hit Play All to restart in sync.';
+});
+
+document.getElementById('tempoSlider').addEventListener('input', e=>{
+  const bpm = parseFloat(e.target.value);
+  Tone.Transport.bpm.value = bpm;
+  document.getElementById('tempoVal').textContent = bpm;
+});
+
+document.getElementById('masterVol').addEventListener('input', e=>{
+  masterVolNode.volume.value = parseFloat(e.target.value);
+});
+
+// Kick off the first load using CONFIG above.
+loadBeat(CONFIG.dateFolder, CONFIG.beatNumber);
+</script>
+</body>
+</html>
