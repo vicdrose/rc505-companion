@@ -569,7 +569,7 @@ async function loadSelectedBeat(){
         continue;
       }
       const folderName = `${beatNum}_${stemNum}`;
-      const path = `./${dateSelect.value}/WAVE/${folderName}/${folderName}.wav`;
+      const path = `./${dateSelect.value}/WAVE/${folderName}/${folderName}.WAV`;
       loadPromises.push(loadTrack(i, path, `${folderName}.wav`));
     }
     const results = await Promise.allSettled(loadPromises);
