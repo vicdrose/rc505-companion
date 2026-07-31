@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FREESTYLE KING — Loop Mixer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0906;
+    --bg2:#141109;
+    --gold:#d4af37;
+    --gold-dim:#8a7226;
+    --gold-bright:#f2cf5b;
+    --line:#2b2415;
+    --red:#b3413b;
+    --text:#e8dfc4;
+    --text-dim:#7d7460;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Mono',monospace;
+    min-height:100vh;
+    overflow-x:hidden;
+  }
+  #stars{position:fixed;inset:0;z-index:0;}
+  .scanlines{
+    position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:repeating-linear-gradient(
+      to bottom,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.15) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    opacity:0.5;
+  }
+  .wrap{position:relative;z-index:2;max-width:980px;margin:0 auto;padding:32px 20px 80px;}
+header{margin-bottom:36px;border-bottom:1px solid var(--line);padding-bottom:18px;}
+h1{
+font-family:'Bebas Neue',sans-serif;
+font-size:clamp(38px,7vw,64px);
+letter-spacing:3px;
+color:var(--gold-bright);
+text-shadow:0 0 18px rgba(212,175,55,0.35);
+line-height:0.9;
+}
+.eyebrow{
+font-size:11px;letter-spacing:4px;color:var(--gold-dim);
+text-transform:uppercase;margin-bottom:6px;
+}
+.sub{color:var(--text-dim);font-size:13px;margin-top:8px;letter-spacing:0.5px;}
+
+.transport{
+display:flex;align-items:center;gap:16px;margin-bottom:36px;
+flex-wrap:wrap;
+}
+button{
+font-family:'DM Mono',monospace;
+background:transparent;
+border:1px solid var(--gold-dim);
+color:var(--gold);
+padding:10px 22px;
+letter-spacing:2px;
+font-size:12px;
+text-transform:uppercase;
+cursor:pointer;
+transition:all .15s ease;
+}
+button:hover{background:var(--gold);color:var(--bg);border-color:var(--gold);}
+button.primary{border-color:var(--gold);color:var(--gold-bright);}
+button.danger{border-color:var(--red);color:var(--red);}
+button.danger:hover{background:var(--red);color:var(--bg);}
+button:disabled{opacity:0.3;cursor:not-allowed;}
+button:disabled:hover{background:transparent;color:var(--gold);}
+
+.bpm-readout{
+font-size:11px;color:var(--text-dim);letter-spacing:2px;
+border:1px solid var(--line);padding:10px 16px;
+}
+.bpm-readout span{color:var(--gold-bright);font-size:14px;}
+
+.tracks{display:flex;flex-direction:column;gap:2px;margin-bottom:40px;}
+.track{
+background:var(--bg2);
+border:1px solid var(--line);
+padding:16px 18px;
+display:grid;
+grid-template-columns:32px 1fr auto;
+gap:14px;
+align-items:center;
+position:relative;
+}
+.track.armed{border-color:var(--gold-dim);}
+.track-num{
+font-family:'Bebas Neue',sans-serif;
+font-size:24px;color:var(--gold-dim);
+text-align:center;
+}
+.track.armed .track-num{color:var(--gold-bright);}
+
+.track-main{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.track-file-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.file-label{
+font-size:11px;color:var(--text-dim);letter-spacing:1px;
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;
+}
+.file-label.loaded{color:var(--gold);}
+input[type=file]{display:none;}
+.file-btn{
+font-size:10px;padding:6px 12px;letter-spacing:1.5px;
+}
+
+.vol-row{display:flex;align-items:center;gap:10px;}
+.vol-row label{font-size:10px;color:var(--text-dim);letter-spacing:1.5px;width:36px;}
+input[type=range]{
+-webkit-appearance:none;
+flex:1;height:2px;background:var(--line);outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+-webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+background:var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(212,175,55,0.5);
+}
+input[type=range]::-moz-range-thumb{
+width:12px;height:12px;border-radius:50%;border:none;
+background:var(--gold);cursor:pointer;
+}
+
+.fx-row{display:flex;gap:6px;flex-wrap:wrap;}
+.fx-toggle{
+font-size:10px;padding:5px 10px;letter-spacing:1px;
+border:1px solid var(--line);color:var(--text-dim);
+background:transparent;cursor:pointer;
+}
+.fx-toggle.on{border-color:var(--gold);color:var(--gold-bright);background:rgba(212,175,55,0.08);}
+
+.track-controls{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
+.mute-solo{display:flex;gap:6px;}
+.mute-solo button{padding:5px 10px;font-size:10px;}
+.mute-solo button.on{background:var(--gold);color:var(--bg);}
+.mute-solo button.solo-on{background:var(--gold-bright);color:var(--bg);border-color:var(--gold-bright);}
+
+.master{
+background:var(--bg2);
+border:1px solid var(--gold-dim);
+padding:20px;
+margin-bottom:20px;
+}
+.master h2{
+font-family:'Bebas Neue',sans-serif;
+letter-spacing:2px;font-size:22px;color:var(--gold-bright);margin-bottom:14px;
+}
+
+.status{
+font-size:11px;color:var(--text-dim);letter-spacing:1px;
+margin-top:20px;line-height:1.7;border-top:1px solid var(--line);padding-top:16px;
+}
+.status .ok{color:var(--gold);}
+.status .warn{color:var(--red);}
+
+.beat-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.beat-nav-group .nav-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.beat-nav-group button {
+  padding: 6px 12px;
+  font-size: 11px;
+  min-width: 36px;
+}
+
+.beat-nav-group .nav-btn {
+  padding: 6px 10px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.beat-nav-group .random-btn {
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  padding: 6px 16px;
+}
+
+.beat-nav-group .random-btn:hover {
+  background: var(--gold-bright);
+  color: var(--bg);
+}
+
+@media (max-width:640px){
+.track{grid-template-columns:24px 1fr;}
+.track-controls{grid-column:1/-1;flex-direction:row;justify-content:space-between;align-items:center;margin-top:8px;}
+}
+</style>
+
+</head>
+<body>
+<canvas id="stars"></canvas>
+<div class="scanlines"></div>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Transparency Interactive / Freestyle King</div>
+    <h1>Loop Mixer</h1>
+    <div class="sub">Loads stems straight from the repo — no folder picker, works anywhere this is hosted.</div>
+  </header>
+  <div class="transport">
+    <button class="primary" id="playAllBtn" disabled>Play All</button>
+    <button class="danger" id="stopAllBtn" disabled>Stop All</button>
+    <div class="bpm-readout">SPEED <span id="tempoVal">100</span>%</div>
+    <input type="range" id="tempoSlider" min="50" max="200" value="100" style="width:140px;">
+    <button id="resetSpeedBtn">Reset</button>
+  </div>
+  <div class="bpm-readout" style="margin-bottom:24px;display:inline-block;">
+    NOW LOADED <span id="beatReadout">—</span>
+  </div>
+  <div class="transport" style="margin-top:-8px;">
+    <select id="dateSelect" disabled style="background:var(--bg2);border:1px solid var(--gold-dim);color:var(--text);padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <option>loading manifest…</option>
+    </select>
+    <div class="beat-nav-group">
+      <select id="beatSelect" disabled style="background:var(--bg2);border:1px solid var(--gold-dim);color:var(--text);padding:9px 12px;font-family:'DM Mono',monospace;font-size:12px;min-width:80px;">
+        <option>—</option>
+      </select>
+      <div class="nav-buttons">
+        <button id="prevBeatBtn" class="nav-btn" disabled title="Previous beat (↑)">↑</button>
+        <button id="nextBeatBtn" class="nav-btn" disabled title="Next beat (↓)">↓</button>
+      </div>
+      <button id="randomBeatBtn" class="random-btn" disabled>🎲 Random</button>
+    </div>
+  </div>
+  <div class="tracks" id="tracks"></div>
+  <div class="master">
+    <h2>Master</h2>
+    <div class="vol-row" style="margin-bottom:12px;">
+      <label>VOL</label>
+      <input type="range" id="masterVol" min="-40" max="6" value="0">
+    </div>
+    <div class="fx-row" id="masterFx"></div>
+  </div>
+  <div class="master">
+    <h2>MIDI Controller</h2>
+    <div class="transport" style="margin-bottom:14px;">
+      <button id="connectMidiBtn">Connect MIDI Controller</button>
+      <span id="midiStatus" style="font-size:11px;color:var(--text-dim);">not connected</span>
+    </div>
+    <pre id="midiMonitor" style="display:none;background:var(--bg);border:1px solid var(--line);padding:12px;font-size:11px;color:var(--text-dim);max-height:140px;overflow:auto;white-space:pre-wrap;"></pre>
+  </div>
+  <div class="status" id="statusLine">
+    Click <span class="ok">Connect RC-505 Folder</span> and select your root RC-505 dumps folder (the one containing your dated folders).
+  </div>
+</div>
+<script>
+// ---------- Starfield background ----------
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resize();
+window.addEventListener('resize',resize);
+const stars = Array.from({length:140},()=>({
+  x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+  r:Math.random()*1.3+0.2, s:Math.random()*0.5+0.1, a:Math.random()
+}));
+function drawStars(){
+  ctx.fillStyle='#0a0906';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  stars.forEach(st=>{
+    st.a += 0.01*st.s;
+    const alpha = 0.3+Math.abs(Math.sin(st.a))*0.5;
+    ctx.fillStyle=`rgba(212,175,55,${alpha*0.6})`;
+    ctx.beginPath();
+    ctx.arc(st.x,st.y,st.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
+
+// ---------- Effect factory ----------
+function makeFxChain(){
+  const filter = new Tone.Filter(2000,'lowpass');
+  const delay = new Tone.FeedbackDelay('8n',0.35);
+  delay.wet.value = 0;
+  const reverb = new Tone.Reverb({decay:3,wet:0});
+  filter.wet ? null : null;
+  return {filter, delay, reverb};
+}
+
+const NUM_TRACKS = 5;
+const tracks = [];
+let transportStarted = false;
+let currentPlaybackRate = 1.0;
+let wasPlaying = false;
+
+const masterVolNode = new Tone.Volume(0).toDestination();
+const masterFx = makeFxChain();
+masterFx.filter.connect(masterFx.delay);
+masterFx.delay.connect(masterFx.reverb);
+masterFx.reverb.connect(masterVolNode);
+const masterInput = masterFx.filter;
+
+function buildTrackUI(index){
+  const el = document.createElement('div');
+  el.className = 'track';
+  el.innerHTML = `
+    <div class="track-num">${index+1}</div>
+    <div class="track-main">
+      <div class="track-file-row">
+        <span class="file-label" id="fileLabel${index}">waiting for beat load…</span>
+      </div>
+      <div class="vol-row">
+        <label>VOL</label>
+        <input type="range" min="-40" max="6" value="0" id="vol${index}">
+      </div>
+      <div class="fx-row" id="fxRow${index}">
+        <button class="fx-toggle" data-fx="filter">FILTER</button>
+        <button class="fx-toggle" data-fx="delay">DELAY</button>
+        <button class="fx-toggle" data-fx="reverb">REVERB</button>
+      </div>
+    </div>
+    <div class="track-controls">
+      <div class="mute-solo">
+        <button class="muteBtn" id="mute${index}">MUTE</button>
+        <button class="soloBtn" id="solo${index}">SOLO</button>
+      </div>
+    </div>
+  `;
+  return el;
+}
+
+function buildMasterFxUI(){
+  const row = document.getElementById('masterFx');
+  ['filter','delay','reverb'].forEach(fx=>{
+    const btn = document.createElement('button');
+    btn.className='fx-toggle';
+    btn.textContent = fx.toUpperCase();
+    btn.dataset.fx = fx;
+    btn.addEventListener('click',()=>{
+      btn.classList.toggle('on');
+      const on = btn.classList.contains('on');
+      applyMasterFxToggle(fx,on);
+    });
+    row.appendChild(btn);
+  });
+}
+
+function applyMasterFxToggle(fx,on){
+  if(fx==='filter'){
+    masterFx.filter.frequency.value = on ? 800 : 20000;
+  }
+  if(fx==='delay'){
+    masterFx.delay.wet.value = on ? 0.35 : 0;
+  }
+  if(fx==='reverb'){
+    masterFx.reverb.wet.value = on ? 0.4 : 0;
+  }
+}
+
+const container = document.getElementById('tracks');
+for(let i=0;i<NUM_TRACKS;i++){
+  container.appendChild(buildTrackUI(i));
+  const volNode = new Tone.Volume(0);
+  const fx = makeFxChain();
+  volNode.connect(fx.filter);
+  fx.filter.connect(fx.delay);
+  fx.delay.connect(fx.reverb);
+  fx.reverb.connect(masterInput);
+
+  tracks.push({
+    player:null,
+    volNode,
+    fx,
+    loaded:false,
+    muted:false,
+    soloed:false
+  });
+
+  document.getElementById(`vol${i}`).addEventListener('input',e=>{
+    volNode.volume.value = parseFloat(e.target.value);
+  });
+
+  document.querySelectorAll(`#fxRow${i} .fx-toggle`).forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      btn.classList.toggle('on');
+      const on = btn.classList.contains('on');
+      const fxName = btn.dataset.fx;
+      const t = tracks[i];
+      if(fxName==='filter') t.fx.filter.frequency.value = on ? 800 : 20000;
+      if(fxName==='delay') t.fx.delay.wet.value = on ? 0.35 : 0;
+      if(fxName==='reverb') t.fx.reverb.wet.value = on ? 0.4 : 0;
+    });
+  });
+
+  document.getElementById(`mute${i}`).addEventListener('click',e=>{
+    const t = tracks[i];
+    t.muted = !t.muted;
+    e.target.classList.toggle('on',t.muted);
+    updateAudibility();
+  });
+  document.getElementById(`solo${i}`).addEventListener('click',e=>{
+    const t = tracks[i];
+    t.soloed = !t.soloed;
+    e.target.classList.toggle('solo-on',t.soloed);
+    updateAudibility();
+  });
+}
+buildMasterFxUI();
+
+function updateAudibility(){
+  const anySolo = tracks.some(t=>t.soloed);
+  tracks.forEach(t=>{
+    if(!t.volNode) return;
+    let silent = t.muted;
+    if(anySolo && !t.soloed) silent = true;
+    t.volNode.mute = silent;
+  });
+}
+
+let manifest = {};    // { dateFolder: { beatNumber: [stemNum, stemNum, ...] } }
+let currentBeats = {}; // { beatNumber: [stemNum present or undefined, ...] } for the selected date
+
+const dateSelect = document.getElementById('dateSelect');
+const beatSelect = document.getElementById('beatSelect');
+const prevBeatBtn = document.getElementById('prevBeatBtn');
+const nextBeatBtn = document.getElementById('nextBeatBtn');
+const randomBeatBtn = document.getElementById('randomBeatBtn');
+const playAllBtn = document.getElementById('playAllBtn');
+const stopAllBtn = document.getElementById('stopAllBtn');
+
+async function loadTrack(index, url, name){
+  const t = tracks[index];
+  try {
+    if(t.player){
+      t.player.dispose();
+      t.player = null;
+    }
+    const player = new Tone.Player({url, loop:true, playbackRate: currentPlaybackRate}).connect(t.volNode);
+    await Tone.loaded();
+    t.player = player;
+    t.loaded = true;
+    document.getElementById(`fileLabel${index}`).textContent = name;
+    document.getElementById(`fileLabel${index}`).classList.add('loaded');
+    document.querySelectorAll('.track')[index].classList.add('armed');
+  } catch (err) {
+    console.error(`Failed to load track ${index} from ${url}:`, err);
+    t.loaded = false;
+    document.getElementById(`fileLabel${index}`).textContent = `Error: ${name || 'unknown'}`;
+    document.getElementById(`fileLabel${index}`).classList.remove('loaded');
+    document.querySelectorAll('.track')[index].classList.remove('armed');
+    throw err;
+  }
+}
+
+function checkAllLoaded(){
+  const loadedCount = tracks.filter(t=>t.loaded).length;
+  playAllBtn.disabled = loadedCount === 0;
+  stopAllBtn.disabled = loadedCount === 0;
+  const status = document.getElementById('statusLine');
+  if(loadedCount === CONFIG.stemCount){
+    status.innerHTML = 'All five stems loaded. <span class="ok">Ready to play in sync.</span>';
+  } else if(loadedCount > 0){
+    status.innerHTML = `<span class="ok">${loadedCount}/${CONFIG.stemCount} stems loaded for this beat</span> — ready to play with what's there.`;
+  } else {
+    status.innerHTML = '<span class="warn">No stems loaded for this beat.</span>';
+  }
+}
+
+// ---------- Manifest loading ----------
+// manifest.json lives next to this index.html and is regenerated by
+// generate-manifest.js any time you add a new dump. It just lists which
+// dates/beats/stems actually exist — the page fetches stems directly by
+// relative path, e.g. ./71625/WAVE/001_1/001_1.wav
+async function loadManifest(){
+  try{
+    const res = await fetch('./manifest.json');
+    if(!res.ok) throw new Error(`manifest.json returned ${res.status}`);
+    manifest = await res.json();
+  }catch(err){
+    console.error('Failed to load manifest.json:', err);
+    document.getElementById('statusLine').innerHTML =
+      `<span class="warn">Couldn't load manifest.json (${err.message}). Run generate-manifest.js and make sure it's committed next to index.html.</span>`;
+    return;
+  }
+
+  const names = Object.keys(manifest).sort();
+  if(names.length === 0){
+    document.getElementById('statusLine').innerHTML =
+      '<span class="warn">manifest.json loaded but has no date folders in it.</span>';
+    return;
+  }
+  dateSelect.innerHTML = names.map(n=>`<option value="${n}">${n}</option>`).join('');
+  dateSelect.disabled = false;
+  document.getElementById('statusLine').innerHTML = `Found ${names.length} date folder(s). Pick one.`;
+  await populateBeats(names[0]);
+}
+
+async function populateBeats(dateFolder){
+  try {
+    const beats = manifest[dateFolder];
+    if(!beats){
+      document.getElementById('statusLine').innerHTML = `<span class="warn">No entry for ${dateFolder} in manifest.json</span>`;
+      return;
+    }
+    currentBeats = beats;
+
+    const beatNums = Object.keys(currentBeats).sort();
+    if(beatNums.length === 0){
+      beatSelect.innerHTML = '<option>no beats found</option>';
+      beatSelect.disabled = true;
+      prevBeatBtn.disabled = true;
+      nextBeatBtn.disabled = true;
+      randomBeatBtn.disabled = true;
+      document.getElementById('statusLine').innerHTML =
+        `<span class="warn">No beats listed for ${dateFolder} in manifest.json.</span>`;
+      return;
+    }
+    beatSelect.innerHTML = beatNums.map(b=>{
+      const count = currentBeats[b].length;
+      const flag = count < CONFIG.stemCount ? ` ⚠ only ${count}` : '';
+      return `<option value="${b}">${b}${flag}</option>`;
+    }).join('');
+    beatSelect.disabled = false;
+    prevBeatBtn.disabled = false;
+    nextBeatBtn.disabled = false;
+    randomBeatBtn.disabled = false;
+    await loadSelectedBeat();
+  } catch (err) {
+    console.error('Error in populateBeats:', err);
+    document.getElementById('statusLine').innerHTML =
+      `<span class="warn">Error reading manifest for ${dateFolder}: ${err.message}</span>`;
+    beatSelect.innerHTML = '<option>error</option>';
+    beatSelect.disabled = true;
+    prevBeatBtn.disabled = true;
+    nextBeatBtn.disabled = true;
+    randomBeatBtn.disabled = true;
+  }
+}
+
+async function loadSelectedBeat(){
+  try {
+    const beatNum = beatSelect.value;
+    const stemsPresent = currentBeats[beatNum]; // e.g. [1,2,3,4,5] or [1,2,4]
+    if(!stemsPresent){
+      document.getElementById('statusLine').innerHTML = '<span class="warn">No stems found for this beat.</span>';
+      return;
+    }
+    document.getElementById('statusLine').innerHTML = `Loading beat ${beatNum}…`;
+    playAllBtn.disabled = true;
+    stopAllBtn.disabled = true;
+    Tone.Transport.stop();
+    tracks.forEach(t=>{ if(t.player) { t.player.unsync(); t.player.dispose(); t.player = null; } t.loaded = false; });
+
+    const loadPromises = [];
+    for(let i=0;i<CONFIG.stemCount;i++){
+      const stemNum = i+1;
+      if(!stemsPresent.includes(stemNum)){
+        // No stem recorded for this slot on this beat.
+        document.getElementById(`fileLabel${i}`).textContent = 'not recorded for this beat';
+        document.getElementById(`fileLabel${i}`).classList.remove('loaded');
+        document.querySelectorAll('.track')[i].classList.remove('armed');
+        continue;
+      }
+      const folderName = `${beatNum}_${stemNum}`;
+      const path = `./${dateSelect.value}/WAVE/${folderName}/${folderName}.wav`;
+      loadPromises.push(loadTrack(i, path, `${folderName}.wav`));
+    }
+    const results = await Promise.allSettled(loadPromises);
+    results.forEach((result, idx) => {
+      if (result.status === 'rejected') {
+        console.error(`Stem ${idx+1} failed to load:`, result.reason);
+      }
+    });
+    checkAllLoaded();
+    document.getElementById('beatReadout').textContent = `${dateSelect.value} — beat ${beatNum}`;
+  } catch (err) {
+    console.error('Error in loadSelectedBeat:', err);
+    document.getElementById('statusLine').innerHTML =
+      `<span class="warn">Error loading beat: ${err.message}</span>`;
+    checkAllLoaded();
+  }
+}
+
+function getBeatOptions(){
+  return Array.from(beatSelect.options).filter(opt => opt.value && opt.value !== '—' && opt.value !== 'no beats found' && opt.value !== 'error scanning');
+}
+
+function getCurrentBeatIndex(){
+  const options = getBeatOptions();
+  const currentVal = beatSelect.value;
+  return options.findIndex(opt => opt.value === currentVal);
+}
+
+async function navigateBeat(direction){
+  const options = getBeatOptions();
+  if(options.length === 0 || beatSelect.disabled) return;
+  const currentIdx = getCurrentBeatIndex();
+  if(currentIdx === -1) {
+    beatSelect.value = options[0].value;
+  } else {
+    const newIdx = (currentIdx + direction + options.length) % options.length;
+    beatSelect.value = options[newIdx].value;
+  }
+  await loadSelectedBeat();
+  if(!playAllBtn.disabled) {
+    playAllBtn.click();
+  }
+}
+
+async function randomBeat(){
+  const options = getBeatOptions();
+  if(options.length === 0 || beatSelect.disabled) return;
+  const randomIdx = Math.floor(Math.random() * options.length);
+  beatSelect.value = options[randomIdx].value;
+  await loadSelectedBeat();
+  if(!playAllBtn.disabled) {
+    playAllBtn.click();
+  }
+}
+
+prevBeatBtn.addEventListener('click', ()=> navigateBeat(-1));
+nextBeatBtn.addEventListener('click', ()=> navigateBeat(1));
+randomBeatBtn.addEventListener('click', randomBeat);
+
+document.addEventListener('keydown', (e)=>{
+  if(beatSelect.disabled) return;
+  if(document.activeElement === beatSelect) return;
+  if(e.key === 'ArrowUp') {
+    e.preventDefault();
+    navigateBeat(-1);
+  } else if(e.key === 'ArrowDown') {
+    e.preventDefault();
+    navigateBeat(1);
+  } else if(e.key === 'r' || e.key === 'R') {
+    if(!['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      e.preventDefault();
+      randomBeat();
+    }
+  }
+});
+
+dateSelect.addEventListener('change', ()=> {
+  try { populateBeats(dateSelect.value); } catch(err) {
+    console.error('Date selection error:', err);
+    document.getElementById('statusLine').innerHTML = `<span class="warn">Error: ${err.message}</span>`;
+  }
+});
+beatSelect.addEventListener('change', ()=> {
+  try { loadSelectedBeat(); } catch(err) {
+    console.error('Beat selection error:', err);
+    document.getElementById('statusLine').innerHTML = `<span class="warn">Error: ${err.message}</span>`;
+  }
+});
+
+const CONFIG = { stemCount: 5 };
+
+window.LoopMixerAPI = {
+  reloadManifest: loadManifest,
+  loadBeat: async (dateFolder, beatNumber)=>{
+    dateSelect.value = dateFolder;
+    await populateBeats(dateFolder);
+    beatSelect.value = beatNumber;
+    await loadSelectedBeat();
+  },
+  playAll: ()=> playAllBtn.click(),
+  stopAll: ()=> stopAllBtn.click(),
+  setMasterVolume: (db)=>{ masterVolNode.volume.value = db; },
+  randomBeat: randomBeat,
+  nextBeat: ()=> navigateBeat(1),
+  prevBeat: ()=> navigateBeat(-1)
+};
+
+playAllBtn.addEventListener('click', async ()=>{
+  try {
+    await Tone.start();
+    Tone.Transport.stop();
+    Tone.Transport.position = 0;
+    tracks.forEach(t=>{
+      if(t.player && t.loaded){
+        try {
+          t.player.unsync();
+          t.player.sync().start(0);
+        } catch(err) {
+          console.warn('Error syncing track:', err);
+        }
+      }
+    });
+    Tone.Transport.start('+0.1');
+    stopAllBtn.disabled = false;
+    document.getElementById('statusLine').innerHTML = '<span class="ok">Playing — all five loops synced on the transport.</span>';
+  } catch(err) {
+    console.error('Play error:', err);
+    document.getElementById('statusLine').innerHTML = `<span class="warn">Play error: ${err.message}</span>`;
+  }
+});
+
+stopAllBtn.addEventListener('click', ()=>{
+  try {
+    Tone.Transport.stop();
+    tracks.forEach(t=>{ if(t.player) t.player.unsync(); });
+    document.getElementById('statusLine').innerHTML = 'Stopped. Hit Play All to restart in sync.';
+  } catch(err) {
+    console.error('Stop error:', err);
+    document.getElementById('statusLine').innerHTML = `<span class="warn">Stop error: ${err.message}</span>`;
+  }
+});
+
+document.getElementById('tempoSlider').addEventListener('input', e=>{
+  const percent = parseFloat(e.target.value);
+  currentPlaybackRate = percent / 100;
+  document.getElementById('tempoVal').textContent = percent;
+  tracks.forEach(t=>{
+    if(t.player) t.player.playbackRate = currentPlaybackRate;
+  });
+});
+
+document.getElementById('resetSpeedBtn').addEventListener('click', ()=>{
+  document.getElementById('tempoSlider').value = 100;
+  currentPlaybackRate = 1.0;
+  document.getElementById('tempoVal').textContent = 100;
+  tracks.forEach(t=>{
+    if(t.player) t.player.playbackRate = 1.0;
+  });
+});
+
+document.getElementById('masterVol').addEventListener('input', e=>{
+  masterVolNode.volume.value = parseFloat(e.target.value);
+});
+
+const MIDI_CC_MAP = {
+  filterKnobs: [13,14,15,16,17],
+  delayKnobs:  [29,30,31,32,33],
+  reverbKnobs: [49,50,51,52,53],
+  faders:      [77,78,79,80,81,82]
+};
+
+let reverbDebounce = {};
+
+function ccToRange(value, min, max){
+  return min + (value/127)*(max-min);
+}
+
+function handleMidiCC(cc, value){
+  try {
+    document.getElementById('midiMonitor').style.display = 'block';
+    const mon = document.getElementById('midiMonitor');
+    mon.textContent = `CC ${cc} = ${value}\n` + mon.textContent.split('\n').slice(0,20).join('\n');
+
+    const faderIdx = MIDI_CC_MAP.faders.indexOf(cc);
+    if(faderIdx !== -1){
+      const db = ccToRange(value,-40,6);
+      if(faderIdx < 5 && tracks[faderIdx]){
+        tracks[faderIdx].volNode.volume.value = db;
+        document.getElementById(`vol${faderIdx}`).value = db;
+      } else if (faderIdx === 5) {
+        masterVolNode.volume.value = db;
+        document.getElementById('masterVol').value = db;
+      }
+      return;
+    }
+
+    const filterIdx = MIDI_CC_MAP.filterKnobs.indexOf(cc);
+    if(filterIdx !== -1 && tracks[filterIdx]){
+      const freq = ccToRange(value,100,8000);
+      tracks[filterIdx].fx.filter.frequency.value = freq;
+      return;
+    }
+
+    const delayIdx = MIDI_CC_MAP.delayKnobs.indexOf(cc);
+    if(delayIdx !== -1 && tracks[delayIdx]){
+      tracks[delayIdx].fx.delay.feedback.value = ccToRange(value,0,0.9);
+      return;
+    }
+
+    const reverbIdx = MIDI_CC_MAP.reverbKnobs.indexOf(cc);
+    if(reverbIdx !== -1 && tracks[reverbIdx]){
+      const decay = ccToRange(value,0.1,8);
+      tracks[reverbIdx].fx.reverb.decay = decay;
+      clearTimeout(reverbDebounce[reverbIdx]);
+      reverbDebounce[reverbIdx] = setTimeout(()=>{
+        try {
+          tracks[reverbIdx].fx.reverb.generate();
+        } catch(err) {
+          console.warn('Reverb generate error:', err);
+        }
+      }, 150);
+    }
+  } catch(err) {
+    console.error('MIDI handler error:', err);
+    document.getElementById('midiStatus').textContent = 'MIDI error — see console';
+  }
+}
+
+document.getElementById('connectMidiBtn').addEventListener('click', async ()=>{
+  const statusEl = document.getElementById('midiStatus');
+  if(!navigator.requestMIDIAccess){
+    statusEl.textContent = 'Web MIDI not supported — use Chrome or Edge.';
+    return;
+  }
+  try{
+    const midiAccess = await navigator.requestMIDIAccess();
+    const inputs = Array.from(midiAccess.inputs.values());
+    if(inputs.length === 0){
+      statusEl.textContent = 'No MIDI devices found — plug in the Launch Control XL first.';
+      return;
+    }
+    const target = inputs.find(i=>/launch\s*control/i.test(i.name)) || inputs[0];
+    target.onmidimessage = (msg)=>{
+      try {
+        const [status, cc, value] = msg.data;
+        const isCC = (status & 0xF0) === 0xB0;
+        if(isCC) handleMidiCC(cc, value);
+      } catch(err) {
+        console.warn('MIDI message handler error:', err);
+      }
+    };
+    statusEl.textContent = `Connected: ${target.name}`;
+  }catch(err){
+    console.error('MIDI connection error:', err);
+    statusEl.textContent = `MIDI access failed: ${err.message}`;
+  }
+});
+
+// Kick off — load the manifest and populate the first date automatically.
+loadManifest();
+</script>
+</body>
+</html>
