@@ -1,15 +1,7 @@
 // library.js
 //
 // RC-505 Loop Mixer Library Layer
-//
-// Handles:
-// - Favorites virtual folder
-// - Metadata from manifest.json
-// - Future expansion point for playlists, ratings, notes
-//
-// Requires:
-// - index.html already loaded
-// - window.LoopMixerAPI from main app
+// Handles Favorites virtual folder from manifest.json
 
 (() => {
 
@@ -18,8 +10,8 @@
 
   const FAVORITES_KEY = "__favorites__";
 
-  async function initLibrary() {
 
+  async function initLibrary() {
     try {
 
       const response = await fetch("./manifest.json");
@@ -31,19 +23,13 @@
       libraryManifest = await response.json();
 
       buildFavorites();
-
       injectFavoritesOption();
 
-      console.log("Library loaded:", {
-        favorites
-      });
+      console.log("Library loaded:", favorites);
 
     } catch(err) {
-
       console.error("Library initialization failed:", err);
-
     }
-
   }
 
 
@@ -59,17 +45,12 @@
 
         const beat = beats[beatNumber];
 
-        if (
-          beat &&
-          beat.favorite === true
-        ) {
+        if (beat && beat.favorite === true) {
 
           favorites.push({
-
             date: dateFolder,
             beat: beatNumber,
             stems: beat.stems
-
           });
 
         }
@@ -86,138 +67,90 @@
     const dateSelect = document.getElementById("dateSelect");
 
     if (!dateSelect) {
-
-      console.warn(
-        "dateSelect not found"
-      );
-
       return;
-
     }
 
 
     const option = document.createElement("option");
 
     option.value = FAVORITES_KEY;
+    option.textContent = `★ FAVORITES (${favorites.length})`;
 
-    option.textContent =
-      `★ FAVORITES (${favorites.length})`;
-
-
-    dateSelect.insertBefore(
-      option,
-      dateSelect.firstChild
-    );
+    dateSelect.insertBefore(option, dateSelect.firstChild);
 
 
-    dateSelect.addEventListener(
-      "change",
-      handleLibrarySelection
-    );
+    dateSelect.addEventListener("change", () => {
 
-  }
+      if(dateSelect.value === FAVORITES_KEY){
 
+        showFavoriteBeats();
 
+      }
 
-  async function handleLibrarySelection(e) {
-
-    if (e.target.value !== FAVORITES_KEY) {
-
-      return;
-
-    }
-
-
-    showFavoriteBeats();
+    });
 
   }
 
 
+  function showFavoriteBeats(){
 
-  function showFavoriteBeats() {
+    const beatSelect = document.getElementById("beatSelect");
 
-    const beatSelect =
-      document.getElementById("beatSelect");
-
-
-    if (!beatSelect) {
-
-      return;
-
-    }
+    if(!beatSelect) return;
 
 
-    if (favorites.length === 0) {
+    if(favorites.length === 0){
 
       beatSelect.innerHTML =
-        "<option>No favorites yet</option>";
-
-      beatSelect.disabled = true;
+        "<option>No favorites</option>";
 
       return;
 
     }
 
 
-    beatSelect.innerHTML =
-      favorites.map((item,index)=>{
+    beatSelect.innerHTML = favorites.map((item,index)=>{
 
-        return `
-        <option value="${index}">
-          ★ ${item.date} — Beat ${item.beat}
-        </option>
-        `;
+      return `<option value="${index}">
+      ★ ${item.date} — Beat ${item.beat}
+      </option>`;
 
-      }).join("");
+    }).join("");
 
 
     beatSelect.disabled = false;
 
 
-    beatSelect.onchange =
-      loadFavoriteSelection;
+    beatSelect.onchange = loadFavorite;
 
 
-    loadFavoriteSelection();
+    loadFavorite();
 
   }
 
 
 
-  async function loadFavoriteSelection() {
+  async function loadFavorite(){
 
     const beatSelect =
       document.getElementById("beatSelect");
 
-
-    const index =
-      parseInt(
-        beatSelect.value,
-        10
-      );
-
-
     const favorite =
-      favorites[index];
+      favorites[parseInt(beatSelect.value)];
 
 
-    if (!favorite) {
+    if(!favorite) return;
 
-      return;
+
+    // temporarily tell main app what folder to load
+    if(window.manifest){
+
+      window.manifest = libraryManifest;
 
     }
 
 
-    console.log(
-      "Loading favorite:",
-      favorite
-    );
-
-
-    if (
-      window.LoopMixerAPI &&
-      window.LoopMixerAPI.loadBeat
-    ) {
+    if(window.LoopMixerAPI){
 
       await window.LoopMixerAPI.loadBeat(
         favorite.date,
@@ -225,50 +158,28 @@
       );
 
     }
-    else {
-
-      console.warn(
-        "LoopMixerAPI not available"
-      );
-
-    }
 
   }
 
 
-
-  // Expose for debugging / future features
-
   window.LoopLibrary = {
 
     getFavorites(){
-
       return favorites;
-
     },
 
     reload(){
-
       initLibrary();
-
     }
 
   };
 
 
-  // Wait until main app exists
+  window.addEventListener("load",()=>{
 
-  window.addEventListener(
-    "load",
-    () => {
+    setTimeout(initLibrary,1000);
 
-      setTimeout(
-        initLibrary,
-        500
-      );
-
-    }
-  );
+  });
 
 
 })();
